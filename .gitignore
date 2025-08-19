@@ -1,0 +1,7 @@
+CLAUDE.md
+.DS_Store
+.vscode/
+main.S.cfg
+main.elf
+main.hex
+main1.S

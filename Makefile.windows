@@ -1,0 +1,103 @@
+# Makefile for Windows - AVR ATtiny45 Development
+# Software Requirements:
+# 1. WinAVR or AVR-GCC toolchain for Windows
+# 2. AVRDUDE for programming
+# 3. Make for Windows 
+# 4. Arduino IDE (for Arduino ISCP)
+#
+# Installation Guide:
+# Option 1 - MSYS2 :
+#   1. Install MSYS2 from https://www.msys2.org/
+#   2. Open MSYS2 terminal and run:
+#      pacman -S mingw-w64-x86_64-avr-gcc
+#      pacman -S mingw-w64-x86_64-avrdude
+#      pacman -S make
+#
+# Option 2 - WinAVR (Legacy):
+#   1. Download WinAVR from https://winavr.sourceforge.net/
+#   2. Install and add to PATH
+#
+# Option 3 - Arduino IDE:
+#   1. Install Arduino IDE
+#   2. AVR tools are included in Arduino installation folder
+
+MCU = attiny45 #Change if use another
+PROGRAMMER = arduino
+# Windows COM port format - adjust as needed
+PORT = COM3
+BAUD = 19200
+
+# Use .exe extensions for Windows executables
+ifeq ($(OS),Windows_NT)
+    AVR_GCC = avr-gcc.exe
+    AVR_OBJCOPY = avr-objcopy.exe
+    AVR_SIZE = avr-size.exe
+    AVRDUDE = avrdude.exe
+    RM = del /Q
+    EXT = .exe
+else
+    AVR_GCC = avr-gcc
+    AVR_OBJCOPY = avr-objcopy
+    AVR_SIZE = avr-size
+    AVRDUDE = avrdude
+    RM = rm -f
+    EXT = 
+endif
+
+# Default target
+all: main.hex
+
+main.elf: main.S
+	$(AVR_GCC) -mmcu=$(MCU) -o main.elf main.S
+
+main.hex: main.elf
+	$(AVR_OBJCOPY) -O ihex main.elf main.hex
+
+upload: main.hex
+	$(AVRDUDE) -c $(PROGRAMMER) -p $(MCU) -P $(PORT) -b $(BAUD) -U flash:w:main.hex
+
+fuses:
+	$(AVRDUDE) -c $(PROGRAMMER) -p $(MCU) -P $(PORT) -b $(BAUD) -U lfuse:w:0x62:m -U hfuse:w:0xdf:m
+
+clean:
+ifeq ($(OS),Windows_NT)
+	if exist *.hex $(RM) *.hex
+	if exist *.elf $(RM) *.elf
+	if exist *.o $(RM) *.o
+else
+	$(RM) *.hex *.elf *.o
+endif
+
+size: main.elf
+	$(AVR_SIZE) --mcu=$(MCU) --format=avr main.elf
+
+test:
+	$(AVRDUDE) -c $(PROGRAMMER) -p $(MCU) -P $(PORT) -b $(BAUD) -v
+
+# Check if required tools are installed
+check-tools:
+	@echo Checking required tools...
+	@$(AVR_GCC) --version || (echo ERROR: avr-gcc not found. Please install AVR toolchain. && exit 1)
+	@$(AVRDUDE) -? || (echo ERROR: avrdude not found. Please install AVRDUDE. && exit 1)
+	@echo All required tools found!
+
+# Help target
+help:
+	@echo Available targets:
+	@echo   all        - Build main.hex (default)
+	@echo   main.elf   - Build ELF executable
+	@echo   main.hex   - Build Intel HEX file
+	@echo   upload     - Upload program to microcontroller
+	@echo   fuses      - Set microcontroller fuses
+	@echo   clean      - Remove generated files
+	@echo   size       - Show program size
+	@echo   test       - Test programmer connection
+	@echo   check-tools- Verify required tools are installed
+	@echo   help       - Show this help
+	@echo.
+	@echo Configuration:
+	@echo   MCU: $(MCU)
+	@echo   PORT: $(PORT)
+	@echo   PROGRAMMER: $(PROGRAMMER)
+
+.PHONY: all upload fuses clean size test check-tools help
